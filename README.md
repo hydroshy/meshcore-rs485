@@ -1,59 +1,74 @@
-# Node Sensor RS485 Modbus - Seeed Studio Xiao ESP32-C3 & Wio-SX1262
+# RS485 Modbus Sensor Node (Standalone Project)
 
-Firmware sensor node chạy trên nền tảng MeshCore:
-- Giao tiếp cảm biến Modbus RTU qua module TTL-to-RS485 (chỉ cần 2 dây TX/RX).
-- **Tự động đọc theo chu kỳ và bắn tin nhắn vào Group Chat (kênh chung hoặc kênh riêng tư được mã hóa)**.
-- Toàn bộ tham số cấu hình được lưu vào SPIFFS flash, mất điện không mất cấu hình.
+Dự án độc lập cho **Seeed Studio XIAO ESP32-C3** kết nối module **Wio SX1262 LoRa** và **TTL to RS485 (Auto-flow)**.
 
 ---
 
-## 1. Sơ đồ nối dây
+## 1. Cấu trúc thư mục
 
-| Module TTL to RS485 (Auto Flow) | Xiao ESP32-C3 | Chú thích |
-| :--- | :--- | :--- |
-| **VCC** | **3V3** (hoặc 5V) | Cấp nguồn |
-| **GND** | **GND** | Mass chung |
-| **TXD (DI)** | **D6 (GPIO21)** | Hardware Serial1 TX của ESP32-C3 |
-| **RXD (RO)** | **D7 (GPIO20)** | Hardware Serial1 RX của ESP32-C3 |
-
----
-
-## 2. Bảng lệnh CLI cấu hình định kỳ & nhóm chat
-
-Gõ lệnh qua cổng Serial USB (115200 baud) hoặc gửi qua LoRa Mesh từ xa:
-
-### A. Cấu hình gửi chu kỳ & Nhóm chat
-
-| Lệnh | Ý nghĩa | Ví dụ |
-| :--- | :--- | :--- |
-| `mb cfg` | Xem toàn bộ cấu hình tự động hiện tại | `mb cfg` |
-| `mb send <giây>` | Đặt chu kỳ tự động đọc & gửi tin nhắn (`0` = tắt) | `mb send 60` (mỗi 1 phút), `mb send 300` (mỗi 5 phút) |
-| `mb chan <tên_kênh> [mật_khẩu]` | Cấu hình nhóm chat đích. Nếu có mật khẩu sẽ tự mã hóa (Private Channel) | `mb chan Farm1 secret123` (Nhóm riêng)<br>`mb chan Public` (Nhóm chung) |
-| `mb auto <slave> <func> <reg> <count>` | Cấu hình cảm biến Modbus cần đọc tự động | `mb auto 1 3 0 2` (Đọc Slave 1, fn 3, reg 0, 2 thanh ghi) |
-
-> **Format tin nhắn gửi vào nhóm chat:**  
-> `XiaoC3 Modbus: [MB ID:1] R0:256 R1:600`  
-> Tất cả các máy/điện thoại tham gia cùng nhóm chat sẽ thấy tin nhắn này theo chu kỳ.
-
-### B. Lệnh Modbus thủ công
-
-| Lệnh | Ý nghĩa | Ví dụ |
-| :--- | :--- | :--- |
-| `mb read <id> <fn> <reg> <cnt>` | Đọc thanh ghi ngay lập tức | `mb read 1 3 0 2` |
-| `mb write <id> <reg> <val>` | Ghi 1 thanh ghi (Function 6) | `mb write 1 10 250` |
-| `mb raw <hex>` | Gửi chuỗi Hex thô và nhận phản hồi | `mb raw 010300000002C40B` |
-| `mb scan [start] [end]` | Dò tìm Slave ID trên đường dây RS485 | `mb scan 1 16` |
+```text
+sensor/RS485_SENSOR/
+├── platformio.ini       # File cấu hình PlatformIO độc lập đầy đủ
+├── src/
+│   ├── main.cpp         # Chương trình chính: Mesh, CLI, Auto-send Group Chat
+│   ├── RS485Modbus.h    # Driver Modbus RTU master
+│   ├── target.cpp       # Khởi tạo phần cứng (Board, Radio SX1262, RTC Clock)
+│   ├── target.h         # Khai báo extern
+│   ├── XiaoC3Board.h    # Board abstraction cho Xiao C3
+│   ├── SensorMesh.h     # Lớp nền MeshCore Sensor node
+│   ├── SensorMesh.cpp   # Xử lý gói tin Sensor, CLI, ACL
+│   ├── TimeSeriesData.h # Lưu trữ lịch sử dữ liệu
+│   └── TimeSeriesData.cpp
+├── include/
+└── lib/
+```
 
 ---
 
-## 3. Cách nạp firmware với PlatformIO
+## 2. Sơ đồ nối chân
 
-1. Thêm cấu hình trong `platformio_snippet.ini` vào file `MeshCore/variants/xiao_c3/platformio.ini`.
-2. Mở terminal tại thư mục `MeshCore`:
-   ```bash
-   pio run -e Xiao_C3_modbus_sensor -t upload
+| Chân Module RS485 | Chân XIAO ESP32-C3 | Chú thích |
+| :--- | :--- | :--- |
+| **VCC** | **3V3** | Nguồn 3.3V |
+| **GND** | **GND** | Nối đất |
+| **TXD (DI)** | **D6 (GPIO21)** | UART1 TX |
+| **RXD (RO)** | **D7 (GPIO20)** | UART1 RX |
+
+*(Wio SX1262 LoRa sử dụng các chân D1, D2, D3, D4, D5, D8, D9, D10).*
+
+---
+
+## 3. Cách mở và biên dịch với PlatformIO (VS Code)
+
+1. Mở VS Code.
+2. Chọn **File -> Open Folder...** và chọn đúng thư mục:
+   ```text
+   sensor/RS485_SENSOR
    ```
-3. Mở Serial Monitor:
+3. PlatformIO sẽ tự nhận diện project `Xiao_C3_modbus_sensor`.
+4. Bấm biểu tượng **Build (dấu tick)** ở thanh đáy hoặc mở terminal gõ:
    ```bash
-   pio device monitor -b 115200
+   pio run
    ```
+5. Cắm Xiao ESP32-C3 vào máy tính và bấm **Upload (mũi tên sang phải)**:
+   ```bash
+   pio run -t upload
+   ```
+6. Mở **Serial Monitor (115200 baud)**:
+   ```bash
+   pio device monitor
+   ```
+
+---
+
+## 4. Các lệnh CLI điều khiển qua Serial / Mesh LoRa
+
+- `mb help` : Xem trợ giúp lệnh Modbus.
+- `mb cfg` : Xem cấu hình tự động gửi hiện tại.
+- `mb send <giây>` : Đặt chu kỳ tự động đọc & gửi tin nhắn vào nhóm (0 = tắt). Ví dụ: `mb send 60`
+- `mb chan <tên_kênh> [mật_khẩu]` : Đặt nhóm chat (kèm mật khẩu = nhóm riêng tư mã hóa). Ví dụ: `mb chan Farm1 123456`
+- `mb auto <slave> <func:3|4> <reg> <count>` : Cấu hình thanh ghi Modbus đọc tự động. Ví dụ: `mb auto 1 3 0 2`
+- `mb read <slave> <func:3|4> <reg> <count>` : Đọc thanh ghi ngay lập tức. Ví dụ: `mb read 1 3 0 2`
+- `mb write <slave> <reg> <val>` : Ghi thanh ghi (Function 6).
+- `mb raw <hex>` : Gửi chuỗi hex thô.
+- `mb scan [start] [end]` : Dò ID slave Modbus.
