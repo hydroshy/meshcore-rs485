@@ -35,6 +35,13 @@ struct AutoSendConfig {
 static AutoSendConfig cfg;
 RS485Modbus modbus(Serial1, RS485_RX_PIN, RS485_TX_PIN, -1);
 
+// Khóa bí mật mặc định của kênh Public trong MeshCore (base64: "izOH6cXN6mrJ5e26oRXNcg==")
+static const uint8_t MESHCORE_PUBLIC_PSK[16] = {
+  0x8b, 0x33, 0x87, 0xe9, 0xc5, 0xcd, 0xea, 0x6a,
+  0xc9, 0xe5, 0xed, 0xba, 0xa1, 0x15, 0xcd, 0x72
+};
+#define MESHCORE_PUBLIC_HASH 0x11
+
 void loadConfig() {
   if (SPIFFS.exists(MB_CONFIG_FILE)) {
     File f = SPIFFS.open(MB_CONFIG_FILE, "r");
@@ -45,7 +52,7 @@ void loadConfig() {
     }
     if (f) f.close();
   }
-  // Mặc định ban đầu
+  // Mặc định ban đầu: Kênh Public chuẩn của MeshCore
   memset(&cfg, 0, sizeof(AutoSendConfig));
   cfg.interval_sec = 0; // Mặc định tắt auto send
   cfg.slave_id = 1;
@@ -54,8 +61,8 @@ void loadConfig() {
   cfg.reg_count = 2;
   strcpy(cfg.channel_name, "Public");
   cfg.is_private = false;
-  cfg.channel_hash[0] = 0;
-  memset(cfg.channel_secret, 0, 32);
+  cfg.channel_hash[0] = MESHCORE_PUBLIC_HASH;
+  memcpy(cfg.channel_secret, MESHCORE_PUBLIC_PSK, 16);
 }
 
 void saveConfig() {
@@ -180,16 +187,27 @@ protected:
       strncpy(cfg.channel_name, name, sizeof(cfg.channel_name) - 1);
 
       if (parts >= 2 && strlen(pass) > 0) {
-        // Nhóm riêng: hash mật khẩu thành 32-byte secret và 1-byte hash
         cfg.is_private = true;
-        mesh::Utils::sha256(cfg.channel_secret, sizeof(cfg.channel_secret), (const uint8_t*)pass, strlen(pass));
-        mesh::Utils::sha256(cfg.channel_hash, sizeof(cfg.channel_hash), cfg.channel_secret, 32);
-        snprintf(reply, 160, "OK: Channel '%s' set as PRIVATE (encrypted)", name);
-      } else {
-        // Nhóm Public
-        cfg.is_private = false;
         memset(cfg.channel_secret, 0, 32);
-        cfg.channel_hash[0] = 0;
+
+        // Nếu người dùng nhập chuỗi Hex 32 ký tự (16 bytes key chuẩn của MeshCore App)
+        if (strlen(pass) == 32 && mesh::Utils::isHex(pass, 32)) {
+          mesh::Utils::fromHex(cfg.channel_secret, 16, pass);
+          // Theo chuẩn MeshCore: Channel Hash = SHA256(16-byte secret)[0]
+          mesh::Utils::sha256(cfg.channel_hash, sizeof(cfg.channel_hash), cfg.channel_secret, 16);
+          snprintf(reply, 160, "OK: Channel '%s' key 16B hex (hash: 0x%02X)", name, cfg.channel_hash[0]);
+        } else {
+          // Nếu nhập mật khẩu text thông thường: hash sha256 thành key
+          mesh::Utils::sha256(cfg.channel_secret, 16, (const uint8_t*)pass, strlen(pass));
+          mesh::Utils::sha256(cfg.channel_hash, sizeof(cfg.channel_hash), cfg.channel_secret, 16);
+          snprintf(reply, 160, "OK: Channel '%s' pass text (hash: 0x%02X)", name, cfg.channel_hash[0]);
+        }
+      } else {
+        // Nhóm Public chuẩn của MeshCore
+        cfg.is_private = false;
+        cfg.channel_hash[0] = MESHCORE_PUBLIC_HASH;
+        memset(cfg.channel_secret, 0, 32);
+        memcpy(cfg.channel_secret, MESHCORE_PUBLIC_PSK, 16);
         snprintf(reply, 160, "OK: Channel '%s' set as PUBLIC", name);
       }
       saveConfig();
