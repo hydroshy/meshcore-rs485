@@ -190,8 +190,15 @@ protected:
         cfg.is_private = true;
         memset(cfg.channel_secret, 0, 32);
 
-        // Nếu người dùng nhập chuỗi Hex 32 ký tự (16 bytes key chuẩn của MeshCore App)
-        if (strlen(pass) == 32 && mesh::Utils::isHex(pass, 32)) {
+        // Kiểm tra xem chuỗi có phải đúng 32 ký tự Hex (16 bytes key chuẩn của MeshCore App)
+        bool is_hex = (strlen(pass) == 32);
+        if (is_hex) {
+          for (int i = 0; i < 32; i++) {
+            if (!mesh::Utils::isHexChar(pass[i])) { is_hex = false; break; }
+          }
+        }
+
+        if (is_hex) {
           mesh::Utils::fromHex(cfg.channel_secret, 16, pass);
           // Theo chuẩn MeshCore: Channel Hash = SHA256(16-byte secret)[0]
           mesh::Utils::sha256(cfg.channel_hash, sizeof(cfg.channel_hash), cfg.channel_secret, 16);
