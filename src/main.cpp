@@ -117,7 +117,14 @@ public:
     if (n > 0) {
       char* p = msg;
       p += sprintf(p, "[MB ID:%u]", cfg.slave_id);
-      for (int i = 0; i < n; i++) {
+      if (n >= 2) {
+        // CDAB float decoding cho Selec
+        uint32_t raw_cdab = ((uint32_t)vals[1] << 16) | vals[0];
+        float val_float = 0;
+        memcpy(&val_float, &raw_cdab, 4);
+        p += sprintf(p, " Val:%.2f", val_float);
+      }
+      for (int i = 0; i < n && (p - msg) < 100; i++) {
         p += sprintf(p, " R%u:%u", cfg.reg_addr + i, vals[i]);
       }
     } else {
@@ -357,6 +364,17 @@ void setup() {
   board.begin();
   if (!radio_init()) halt();
   fast_rng.begin(radio_driver.getRngSeed());
+
+  // Mount SPIFFS trước khi đọc/ghi file
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS Mount Failed");
+  }
+
+  IdentityStore store(SPIFFS, "/identity");
+  if (!store.load("_main", the_mesh.self_id)) {
+    the_mesh.self_id = radio_new_identity();
+    store.save("_main", the_mesh.self_id);
+  }
 
   loadConfig(); // Nạp cấu hình Modbus định kỳ từ Flash
 
