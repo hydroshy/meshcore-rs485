@@ -15,6 +15,9 @@
 #endif
 
 #define MB_CONFIG_FILE "/mb_cfg.bin"
+#ifndef MAX_TEXT_LEN
+  #define MAX_TEXT_LEN (10 * 16) // 160 bytes text payload theo chuẩn MeshCore
+#endif
 
 // Cấu hình định kỳ và nhóm chat (lưu Flash)
 struct AutoSendConfig {
