@@ -173,13 +173,11 @@ protected:
       return true;
     }
 
-    // 4. mb chan <channel_name> [password]
-    // Ví dụ đặt nhóm riêng mã hóa: mb chan FarmSecret 123456
-    // Hoặc đặt nhóm public: mb chan Public
+    // 4. mb chan <channel_name> [password_or_hex_key]
     if (strncmp(command, "mb chan ", 8) == 0) {
       char name[32] = {0};
-      char pass[32] = {0};
-      int parts = sscanf(command + 8, "%31s %31s", name, pass);
+      char pass[64] = {0};
+      int parts = sscanf(command + 8, "%31s %63s", name, pass);
       if (parts < 1) {
         strcpy(reply, "Err: mb chan <name> [password]");
         return true;
