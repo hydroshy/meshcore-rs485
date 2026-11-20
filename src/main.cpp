@@ -252,8 +252,21 @@ protected:
       }
       char* p = reply;
       p += sprintf(p, "OK [%d]:", n);
-      for (int i = 0; i < n && (p - reply) < 140; i++) {
+      for (int i = 0; i < n && (p - reply) < 100; i++) {
         p += sprintf(p, " %u", dest[i]);
+      }
+      if (n >= 2) {
+        // CDAB (Word 0: CD, Word 1: AB)
+        uint32_t raw_cdab = ((uint32_t)dest[1] << 16) | dest[0];
+        float val_float = 0;
+        memcpy(&val_float, &raw_cdab, 4);
+
+        // ABCD (Word 0: AB, Word 1: CD)
+        uint32_t raw_abcd = ((uint32_t)dest[0] << 16) | dest[1];
+        float val_abcd = 0;
+        memcpy(&val_abcd, &raw_abcd, 4);
+
+        p += sprintf(p, " | Float: %.2f (or %.2f)", val_float, val_abcd);
       }
       return true;
     }
@@ -345,20 +358,12 @@ void setup() {
   if (!radio_init()) halt();
   fast_rng.begin(radio_driver.getRngSeed());
 
-  // Khoi dong UART1 RS485 SAU KHI board.begin() de chiem lai D6/D7
-  modbus.begin(RS485_BAUD);
-
-  SPIFFS.begin(true);
-  IdentityStore store(SPIFFS, "/identity");
-  if (!store.load("_main", the_mesh.self_id)) {
-    the_mesh.self_id = radio_new_identity();
-    store.save("_main", the_mesh.self_id);
-  }
-
   loadConfig(); // Nạp cấu hình Modbus định kỳ từ Flash
 
-  sensors.begin();
   the_mesh.begin(&SPIFFS);
+
+  // Khoi dong UART1 RS485 o cuoi setup() de dam bao doc quyen D6/D7
+  modbus.begin(RS485_BAUD);
 
 #if ENABLE_ADVERT_ON_BOOT == 1
   the_mesh.sendSelfAdvertisement(16000, false);

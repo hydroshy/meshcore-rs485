@@ -15,17 +15,11 @@ WRAPPER_CLASS radio_driver(radio, board);
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 
-#if ENV_INCLUDE_GPS
-  #include <helpers/sensors/MicroNMEALocationProvider.h>
-  MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1, &rtc_clock);
-  EnvironmentSensorManager sensors = EnvironmentSensorManager(nmea);
-#else
-  EnvironmentSensorManager sensors;
-#endif
+SensorManager sensors;
 
 bool radio_init() {
   fallback_clock.begin();
-  rtc_clock.begin(Wire);
+  // Khong goi rtc_clock.begin(Wire) de tranh Wire mac dinh chiem D6/D7 lam I2C
 
 #if defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);

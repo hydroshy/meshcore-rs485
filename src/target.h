@@ -6,12 +6,12 @@
 #include <XiaoC3Board.h>
 #include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
-#include <helpers/sensors/EnvironmentSensorManager.h>
+#include <helpers/SensorManager.h>
 
 extern XiaoC3Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern EnvironmentSensorManager sensors;
+extern SensorManager sensors;
 
 bool radio_init();
 mesh::LocalIdentity radio_new_identity();
