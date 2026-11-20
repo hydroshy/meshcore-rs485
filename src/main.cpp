@@ -341,11 +341,12 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  modbus.begin(RS485_BAUD);
-
   board.begin();
   if (!radio_init()) halt();
   fast_rng.begin(radio_driver.getRngSeed());
+
+  // Khoi dong UART1 RS485 SAU KHI board.begin() de chiem lai D6/D7
+  modbus.begin(RS485_BAUD);
 
   SPIFFS.begin(true);
   IdentityStore store(SPIFFS, "/identity");
